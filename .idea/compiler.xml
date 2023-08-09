@@ -9,8 +9,5 @@
         <module name="GHServlet" />
       </profile>
     </annotationProcessing>
-    <bytecodeTargetLevel>
-      <module name="GHServlet" target="1.5" />
-    </bytecodeTargetLevel>
   </component>
 </project>
