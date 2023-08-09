@@ -10,7 +10,7 @@
  GNU Affero General Public License for more details.
  You should have received a copy of the GNU Affero General Public License
  along with this program.  If not, see <http://www.gnu.org/licenses/>. */
- 
+
 package com.dashboard.servlet;
 
 import javax.ws.rs.*;
@@ -34,20 +34,14 @@ import org.json.JSONObject;
 import java.util.List;
 import java.util.Locale;
 
-@Path("/route")
 public class Test {
     /**
      * API interface method called by Dashboard
+     *
      * @param avoidArea FeatureCollection object (in GeoJSON format) containing the areas to avoid in routing calculation
      * @param waypoints Routing lat/lng waypoints separed by ';'
-     * @return the Response object expected from GraphHopper Leaflet Routing Machine
      */
-    @GET
-    @Produces(MediaType.TEXT_PLAIN)
-    public Response getRoute(@DefaultValue("car") @QueryParam("vehicle") String vehicle,
-                            @DefaultValue("") @QueryParam("avoid_area") String avoidArea,
-                            @DefaultValue("") @QueryParam("waypoints") String waypoints) {
-
+    public static void getRoute(String vehicle, String avoidArea, String waypoints) {
         _vehicle = vehicle;
 
         // 1: init GH
@@ -60,14 +54,18 @@ public class Test {
         GHResponse response = blockedRoute(hopper, waypointsArray);
         // 5: build response
         JSONObject jsonResponse = buildFormattedResponse(hopper, response);
-        return Response.ok(jsonResponse.toString()).header("Access-Control-Allow-Origin", "*").build();
-
+        System.out.println(jsonResponse.toString());
+//        return Response.ok(jsonResponse.toString()).header("Access-Control-Allow-Origin", "*").build();
     }
 
     static String _vehicle = "car";
     final static String _algorithm = Parameters.Algorithms.DIJKSTRA_BI;
 
     public static void main(String[] args) {
+        getRoute("bike",
+                "{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"properties\":{\"radius\":148.31828400014956},\"geometry\":{\"type\":\"Point\",\"coordinates\":[11.268089,43.777663]}}],\"scenarioName\":\"gia pan - sce01\",\"isPublic\":false}",
+                "11.261587142944338,43.783860157932395;11.271286010742188,43.76582535876258"
+        );
     }
 
     public static DynamicGH initGH(String _vehicle) {
@@ -75,9 +73,9 @@ public class Test {
         final EncodingManager _vehicleManager = EncodingManager.create(_vehicle);
         // create one GraphHopper instance
         DynamicGH hopper = new DynamicGH();
-        hopper.setDataReaderFile("data/tuscany/map_tuscany.osm");
+        hopper.setDataReaderFile("toscana.osm.pbf");
         // where to store graphhopper files?
-        hopper.setGraphHopperLocation("data/tuscany/map_tuscany_"+_vehicle+"-gh");
+        hopper.setGraphHopperLocation("data/tuscany/map_tuscany_" + _vehicle + "-gh");
         //hopper.clean();
         hopper.setEncodingManager(_vehicleManager);
         hopper.setCHEnabled(false);
@@ -92,7 +90,7 @@ public class Test {
     public static void blockAreaSetup(DynamicGH hopper, String avoidArea) {
         JSONObject jsonData = new JSONObject(avoidArea);
 
-        GraphEdgeIdFinder.BlockArea blockArea =  new GraphEdgeIdFinder.BlockArea(hopper.getGraphHopperStorage());
+        GraphEdgeIdFinder.BlockArea blockArea = new GraphEdgeIdFinder.BlockArea(hopper.getGraphHopperStorage());
 
         JSONArray features = jsonData.getJSONArray("features");
         for (int i = 0; i < features.length(); i++) {
@@ -101,10 +99,10 @@ public class Test {
             JSONArray coords = feature.getJSONObject("geometry").getJSONArray("coordinates");
             String type = feature.getJSONObject("geometry").getString("type");
 
-            if( type.equals("Point") ) {
+            if (type.equals("Point")) {
                 blockArea.add(new Circle(coords.getDouble(1), coords.getDouble(0), 1));
             }
-            if( type.equals("Polygon") ) {
+            if (type.equals("Polygon")) {
                 double[] lats = new double[coords.getJSONArray(0).length()];
                 double[] lons = new double[coords.getJSONArray(0).length()];
                 for (i = 0; i < coords.getJSONArray(0).length(); i++) {
@@ -113,7 +111,7 @@ public class Test {
                 }
                 blockArea.add(new Polygon(lats, lons));
             }
-            if( type.equals("Point") && feature.getJSONObject("properties").has("radius") ) {      // circle
+            if (type.equals("Point") && feature.getJSONObject("properties").has("radius")) {      // circle
                 double radius = feature.getJSONObject("properties").getDouble("radius");
                 blockArea.add(new Circle(coords.getDouble(1), coords.getDouble(0), radius));
             }
@@ -130,7 +128,7 @@ public class Test {
 
         // --paths
         JSONArray pathArray = new JSONArray();
-        for (PathWrapper path: allPathsList) {
+        for (PathWrapper path : allPathsList) {
             // get path geometry information (latitude, longitude and optionally elevation)
             PointList pointList = path.getPoints();
             // get information per turn instruction
@@ -142,7 +140,7 @@ public class Test {
             JSONObject paths = new JSONObject();
             // ----bbox
             BBox box = hopper.getGraphHopperStorage().getBounds();
-            String bboxString = "["+box.minLon+","+box.minLat+","+box.maxLon+","+box.maxLat+"]";
+            String bboxString = "[" + box.minLon + "," + box.minLat + "," + box.maxLon + "," + box.maxLat + "]";
             JSONArray bbox = new JSONArray(bboxString);
             paths.put("bbox", bbox);
             // ----points
@@ -215,11 +213,11 @@ public class Test {
         }
 
         req.setWeighting("block_area")
-            .setVehicle(_vehicle)
-            .setLocale(Locale.ENGLISH);
+                .setVehicle(_vehicle)
+                .setLocale(Locale.ENGLISH);
 
         // GH does not allow alt routes with >2 waypoints, so we manage this case disabling alt route for >2 waypoints
-        if(waypointsArray.length>2)
+        if (waypointsArray.length > 2)
             req.setAlgorithm(_algorithm);
         else
             req.setAlgorithm(Parameters.Algorithms.ALT_ROUTE);
@@ -229,8 +227,8 @@ public class Test {
 
     public static void printResponseDetails(GHResponse rsp) {
         // first check for errors
-        if(rsp.hasErrors()) {
-            System.out.println("Response error: "+rsp.getErrors());
+        if (rsp.hasErrors()) {
+            System.out.println("Response error: " + rsp.getErrors());
             return;
         }
 
@@ -242,8 +240,8 @@ public class Test {
         double distance = path.getDistance();
         long timeInMs = path.getTime();
 
-        System.out.printf("Distance: %.2f km\n", distance/1000);
-        System.out.printf("Time: %.2f min\n", (double)timeInMs/3600000);
+        System.out.printf("Distance: %.2f km\n", distance / 1000);
+        System.out.printf("Time: %.2f min\n", (double) timeInMs / 3600000);
 
         // translation
         TranslationMap trMap = new TranslationMap().doImport();
@@ -252,7 +250,7 @@ public class Test {
 
         InstructionList il = path.getInstructions();
         // iterate over every turn instruction
-        for(Instruction instruction : il) {
+        for (Instruction instruction : il) {
             System.out.println(instruction.getTurnDescription(itTranslation));
             //System.out.println(instruction.toString());
         }
@@ -262,20 +260,20 @@ public class Test {
 
     public static void printAlternativeDetails(GHResponse rsp) {
         // first check for errors
-        if(rsp.hasErrors()) {
-            System.out.println("Response error: "+rsp.getErrors());
+        if (rsp.hasErrors()) {
+            System.out.println("Response error: " + rsp.getErrors());
             return;
         }
 
         List<PathWrapper> paths = rsp.getAll();
-        for (PathWrapper path: paths) {
+        for (PathWrapper path : paths) {
             // points, distance in meters and time in millis of the full path
             PointList pointList = path.getPoints();
             double distance = path.getDistance();
             long timeInMs = path.getTime();
 
-            System.out.printf("Distance: %.2f km\n", distance/1000);
-            System.out.printf("Time: %.2f min\n", (double)timeInMs/3600000);
+            System.out.printf("Distance: %.2f km\n", distance / 1000);
+            System.out.printf("Time: %.2f min\n", (double) timeInMs / 3600000);
 
             // translation
             TranslationMap trMap = new TranslationMap().doImport();
@@ -284,7 +282,7 @@ public class Test {
 
             InstructionList il = path.getInstructions();
             // iterate over every turn instruction
-            for(Instruction instruction : il) {
+            for (Instruction instruction : il) {
                 System.out.println(instruction.getTurnDescription(itTranslation));
                 //System.out.println(instruction.toString());
             }
@@ -298,8 +296,8 @@ public class Test {
     /**
      * Get closest node/edge from lat, long coords
      * oppure:
-     *      LocationIndex locationindex = myHopper.getLocationIndex();
-     *      QueryResult qr = locationindex.findClosest(latFrom, lonFrom, EdgeFilter.ALL_EDGES);
+     * LocationIndex locationindex = myHopper.getLocationIndex();
+     * QueryResult qr = locationindex.findClosest(latFrom, lonFrom, EdgeFilter.ALL_EDGES);
      */
     public static int getClosestNode(GraphHopper hopper, double lat, double lon) {
         QueryResult qr = hopper.getLocationIndex().findClosest(lat, lon, EdgeFilter.ALL_EDGES);
@@ -334,15 +332,15 @@ public class Test {
         PointList pl = edgeState.fetchWayGeometry(3);
         // Computing angle of edge based on geometry
         double edgeAngle = calc.calcOrientation(pl.getLatitude(0), pl.getLongitude(0),
-                pl.getLat(pl.size() - 1), pl.getLongitude(pl.size() - 1) );
+                pl.getLat(pl.size() - 1), pl.getLongitude(pl.size() - 1));
         // Comparing two edges
-        return (Math.abs(edgeAngle - angle) > 90 );
+        return (Math.abs(edgeAngle - angle) > 90);
     }
 
     public static void printTest(GraphHopper hopper, GHResponse rsp) {
         // first check for errors
-        if(rsp.hasErrors()) {
-            System.out.println("Response error: "+rsp.getErrors());
+        if (rsp.hasErrors()) {
+            System.out.println("Response error: " + rsp.getErrors());
             return;
         }
 
@@ -352,13 +350,13 @@ public class Test {
         // points, distance in meters and time in millis of the full path
         PointList pointList = path.getPoints();
 
-        System.out.println(pointList.toString()+"\n\n");
+        System.out.println(pointList.toString() + "\n\n");
 
-        for(int i = 0; i < pointList.size()-1; i++ ) {
-            System.out.println("Da "+pointList.getLatitude(i)+","+pointList.getLongitude(i)+" A "+
-                    pointList.getLatitude(i+1)+","+pointList.getLongitude(i+1)+
-                    " --> "+ isReverseDirection(hopper, new GHPoint(pointList.getLatitude(i), pointList.getLongitude(i)),
-                    new GHPoint(pointList.getLatitude(i+1), pointList.getLongitude(i+1)))+"\n");
+        for (int i = 0; i < pointList.size() - 1; i++) {
+            System.out.println("Da " + pointList.getLatitude(i) + "," + pointList.getLongitude(i) + " A " +
+                    pointList.getLatitude(i + 1) + "," + pointList.getLongitude(i + 1) +
+                    " --> " + isReverseDirection(hopper, new GHPoint(pointList.getLatitude(i), pointList.getLongitude(i)),
+                    new GHPoint(pointList.getLatitude(i + 1), pointList.getLongitude(i + 1))) + "\n");
         }
 
     }
