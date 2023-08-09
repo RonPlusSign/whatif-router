@@ -10,38 +10,50 @@
  GNU Affero General Public License for more details.
  You should have received a copy of the GNU Affero General Public License
  along with this program.  If not, see <http://www.gnu.org/licenses/>. */
- 
- package com.dashboard.servlet;
+
+package com.dashboard.servlet;
 
 import com.graphhopper.GraphHopper;
-import com.graphhopper.reader.osm.GraphHopperOSM;
-import com.graphhopper.routing.util.FlagEncoder;
-import com.graphhopper.routing.util.HintsMap;
+import com.graphhopper.config.Profile;
+import com.graphhopper.routing.WeightingFactory;
+import com.graphhopper.routing.ev.DecimalEncodedValueImpl;
+import com.graphhopper.routing.ev.SimpleBooleanEncodedValue;
 import com.graphhopper.routing.weighting.BlockAreaWeighting;
 import com.graphhopper.routing.weighting.FastestWeighting;
 import com.graphhopper.routing.weighting.Weighting;
-import com.graphhopper.storage.Graph;
 import com.graphhopper.storage.GraphEdgeIdFinder;
+import com.graphhopper.util.PMap;
 
-public class DynamicGH extends GraphHopperOSM {
+
+public class DynamicGH extends GraphHopper {
+    private final PMap hintsMap;
     private GraphEdgeIdFinder.BlockArea blockArea;
-    public DynamicGH() {
+
+    public DynamicGH(PMap hintsMap) {
         super();
+        this.hintsMap = hintsMap;
     }
+
     // Override the createWeighting method of the GraphHopper class to enable BlockAreaWeighting
     @Override
-    public Weighting createWeighting(HintsMap hintsMap, FlagEncoder encoder, Graph graph) {
-        System.out.println("create weighting: "+hintsMap.getWeighting() );
-        String weighting = hintsMap.getWeighting();
+    protected WeightingFactory createWeightingFactory() {
+        System.out.println("Create weighting factory: " + this.hintsMap.getString("weighting", ""));
+        String weighting = hintsMap.getString("weighting", "");
         if ("block_area".equalsIgnoreCase(weighting)) {
-            return new BlockAreaWeighting(new FastestWeighting(encoder), blockArea);
+            Weighting w = new FastestWeighting(new SimpleBooleanEncodedValue(""), new DecimalEncodedValueImpl("", 0, 0, false));
+            return new WeightingFactory() {
+                @Override
+                public Weighting createWeighting(Profile profile, PMap pMap, boolean b) {
+                    return new BlockAreaWeighting(w, blockArea);
+                }
+            };
         } else {
-            return super.createWeighting(hintsMap, encoder, graph);
+            return super.createWeightingFactory();
         }
     }
 
     public void setBlockArea(GraphEdgeIdFinder.BlockArea ba) {
-        blockArea = new GraphEdgeIdFinder.BlockArea(this.getGraphHopperStorage());
+        blockArea = new GraphEdgeIdFinder.BlockArea(this.getBaseGraph());
         blockArea = ba;
     }
 }
