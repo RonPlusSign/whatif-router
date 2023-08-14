@@ -14,46 +14,43 @@
 package com.dashboard.servlet;
 
 import com.graphhopper.GraphHopper;
-import com.graphhopper.config.Profile;
 import com.graphhopper.routing.WeightingFactory;
-import com.graphhopper.routing.ev.DecimalEncodedValueImpl;
-import com.graphhopper.routing.ev.SimpleBooleanEncodedValue;
+import com.graphhopper.routing.ev.*;
+import com.graphhopper.routing.util.EncodingManager;
 import com.graphhopper.routing.weighting.BlockAreaWeighting;
 import com.graphhopper.routing.weighting.FastestWeighting;
-import com.graphhopper.routing.weighting.Weighting;
 import com.graphhopper.storage.GraphEdgeIdFinder;
-import com.graphhopper.util.PMap;
 
 
 public class DynamicGH extends GraphHopper {
-    private final PMap hintsMap;
     private GraphEdgeIdFinder.BlockArea blockArea;
 
-    public DynamicGH(PMap hintsMap) {
+    public DynamicGH() {
         super();
-        this.hintsMap = hintsMap;
     }
 
     // Override the createWeighting method of the GraphHopper class to enable BlockAreaWeighting
     @Override
     protected WeightingFactory createWeightingFactory() {
-        System.out.println("Create weighting factory: " + this.hintsMap.getString("weighting", ""));
-        String weighting = hintsMap.getString("weighting", "");
+
+        String weighting = this.getProfiles().get(0).getWeighting();
+
         if ("block_area".equalsIgnoreCase(weighting)) {
-            Weighting w = new FastestWeighting(new SimpleBooleanEncodedValue(""), new DecimalEncodedValueImpl("", 0, 0, false));
-            return new WeightingFactory() {
-                @Override
-                public Weighting createWeighting(Profile profile, PMap pMap, boolean b) {
-                    return new BlockAreaWeighting(w, blockArea);
-                }
-            };
+            // Get encoded values for the vehicle
+            EncodingManager em = this.getEncodingManager();
+            BooleanEncodedValue accessEnc = em.getBooleanEncodedValue(VehicleAccess.key(this.getProfiles().get(0).getVehicle()));
+            DecimalEncodedValue speedEnc = em.getDecimalEncodedValue(VehicleSpeed.key(this.getProfiles().get(0).getVehicle()));
+
+            // Create a new WeightingFactory, with the createWeighting method that returns a BlockAreaWeighting
+            return (profile, pMap, b) -> new BlockAreaWeighting(new FastestWeighting(accessEnc, speedEnc), blockArea);
+
         } else {
             return super.createWeightingFactory();
         }
     }
 
     public void setBlockArea(GraphEdgeIdFinder.BlockArea ba) {
-        blockArea = new GraphEdgeIdFinder.BlockArea(this.getBaseGraph());
+        blockArea = new GraphEdgeIdFinder.BlockArea(this.getBaseGraph());   // Reset blockArea
         blockArea = ba;
     }
 }

@@ -23,7 +23,6 @@ import com.graphhopper.GHResponse;
 import com.graphhopper.GraphHopper;
 import com.graphhopper.ResponsePath;
 import com.graphhopper.config.Profile;
-import com.graphhopper.jackson.InstructionListSerializer;
 import com.graphhopper.routing.util.*;
 import com.graphhopper.storage.GraphEdgeIdFinder;
 import com.graphhopper.storage.index.LocationIndex;
@@ -33,67 +32,79 @@ import com.graphhopper.util.shapes.*;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.util.List;
-import java.util.Locale;
+import java.util.*;
 
 @Path("/route")
 public class Test {
+    static String _vehicle = "car";
+    final static String _algorithm = Parameters.Algorithms.DIJKSTRA_BI;
+
     /**
      * API interface method called by Dashboard
      *
      * @param avoidArea FeatureCollection object (in GeoJSON format) containing the areas to avoid in routing calculation
      * @param waypoints Routing lat/lng waypoints separated by ';'
-     *                  <p>
+     *
      * @return the Response object expected from GraphHopper Leaflet Routing Machine
      */
     @GET
     @Produces(MediaType.TEXT_PLAIN)
-    public Response getRoute(@DefaultValue("car") @QueryParam("vehicle") String vehicle,
-                             @DefaultValue("") @QueryParam("avoid_area") String avoidArea,
-                             @DefaultValue("") @QueryParam("waypoints") String waypoints) {
+    public static Response getRoute(@DefaultValue("car") @QueryParam("vehicle") String vehicle,
+                                    @DefaultValue("") @QueryParam("avoid_area") String avoidArea,
+                                    @DefaultValue("") @QueryParam("waypoints") String waypoints) {
         _vehicle = vehicle;
 
         // 1: init GH
         DynamicGH hopper = initGH(_vehicle);
-        // 2: extract barriers and apply them
-        blockAreaSetup(hopper, avoidArea);
+
+//        // 2. If there's an avoidArea, set the weighting to block_area and apply the avoidArea
+        if (avoidArea != null && !avoidArea.isEmpty()) {
+            hopper.getProfiles().get(0).setWeighting("block_area");
+
+            // extract barriers and apply them
+            blockAreaSetup(hopper, avoidArea);
+        }
+
         // 3: extract waypoints
         String[] waypointsArray = waypoints.split(";");
+
         // 4: perform blocked routing
         GHResponse response = blockedRoute(hopper, waypointsArray);
+
         // 5: build response
         JSONObject jsonResponse = buildFormattedResponse(hopper, response);
         return Response.ok(jsonResponse.toString()).header("Access-Control-Allow-Origin", "*").build();
     }
 
-    static String _vehicle = "car";
-    final static String _algorithm = Parameters.Algorithms.DIJKSTRA_BI;
 
     public static void main(String[] args) {
+        // Uncomment the following lines to test the routing methods
+//        getRoute("bike",
+//                "{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"properties\":{\"radius\":148.31828400014956},\"geometry\":{\"type\":\"Point\",\"coordinates\":[43.777663,11.268089]}}],\"scenarioName\":\"gia pan - sce01\",\"isPublic\":false}",
+//                "43.783860157932395,11.261587142944338;43.76582535876258,11.271286010742188"
+//        );
     }
 
     public static DynamicGH initGH(String _vehicle) {
         // Create EncodingManager for the selected vehicle (car, foot, bike)
-        final EncodingManager _vehicleManager = EncodingManager.create(_vehicle);
+        final EncodingManager vehicleManager = EncodingManager.create(_vehicle);
+
         // create one GraphHopper instance
-        DynamicGH hopper = new DynamicGH(new PMap());
+        DynamicGH hopper = new DynamicGH();
+
         hopper.setOSMFile("toscana.osm.pbf");
         hopper.setGraphHopperLocation("toscana_" + _vehicle + "-gh");
-        hopper.clean();
-        hopper.setProfiles(new Profile(_vehicle).setWeighting("fastest").setVehicle(_vehicle).setTurnCosts(false));
+        // hopper.clean();
+        hopper.setProfiles(new Profile(_vehicle).setVehicle(_vehicle));
 
-        // now this can take minutes if it imports or a few seconds for loading
-        // of course this is dependent on the area you import
+        // now this can take minutes if it imports or a few seconds for loading (of course this is dependent on the area you import)
         hopper.importOrLoad();
-
         return hopper;
     }
 
     public static void blockAreaSetup(DynamicGH hopper, String avoidArea) {
-        System.out.println("avoidArea: " + avoidArea);
 
         JSONObject jsonData = new JSONObject(avoidArea);
-
         GraphEdgeIdFinder.BlockArea blockArea = new GraphEdgeIdFinder.BlockArea(hopper.getBaseGraph());
 
         JSONArray features = jsonData.getJSONArray("features");
@@ -104,67 +115,72 @@ public class Test {
             String type = feature.getJSONObject("geometry").getString("type");
 
             if (type.equals("Point")) {
-                blockArea.add(new Circle(coords.getDouble(1), coords.getDouble(0), 1));
+                blockArea.add(new Circle(coords.getDouble(0), coords.getDouble(1), 1));
             }
             if (type.equals("Polygon")) {
                 double[] lats = new double[coords.getJSONArray(0).length()];
                 double[] lons = new double[coords.getJSONArray(0).length()];
                 for (i = 0; i < coords.getJSONArray(0).length(); i++) {
-                    lats[i] = coords.getJSONArray(0).getJSONArray(i).getDouble(1);
-                    lons[i] = coords.getJSONArray(0).getJSONArray(i).getDouble(0);
+                    lats[i] = coords.getJSONArray(0).getJSONArray(i).getDouble(0);
+                    lons[i] = coords.getJSONArray(0).getJSONArray(i).getDouble(1);
                 }
                 blockArea.add(new Polygon(lats, lons));
             }
             if (type.equals("Point") && feature.getJSONObject("properties").has("radius")) {      // circle
                 double radius = feature.getJSONObject("properties").getDouble("radius");
-                blockArea.add(new Circle(coords.getDouble(1), coords.getDouble(0), radius));
+                blockArea.add(new Circle(coords.getDouble(0), coords.getDouble(1), radius));
             }
         }
         hopper.setBlockArea(blockArea);
     }
 
     // build response json as required by leaflet routing machine
-    public static JSONObject buildFormattedResponse(DynamicGH hopper, GHResponse rsp) {
+    public static JSONObject buildFormattedResponse(DynamicGH hopper, GHResponse response) {
         JSONObject jsonRsp = new JSONObject();
 
         // Use all paths
-        List<ResponsePath> allPathsList = rsp.getAll();
+        List<ResponsePath> allPathsList = response.getAll();
 
-        // --paths
+        System.out.println("All paths: " + allPathsList.size());
+
+        // paths
         JSONArray pathArray = new JSONArray();
         for (ResponsePath path : allPathsList) {
             // get path geometry information (latitude, longitude and optionally elevation)
             PointList pointList = path.getPoints();
             // get information per turn instruction
-            InstructionList il = path.getInstructions();
+            InstructionList instructions = path.getInstructions();
+
             // get time(milliseconds) and distance(meters) of the path
             double distance = path.getDistance();
             long millis = path.getTime();
 
-            JSONObject paths = new JSONObject();
-            // ----bbox
+            JSONObject jsonPath = new JSONObject();
+
+            // bbox
             BBox box = hopper.getBaseGraph().getBounds();
             String bboxString = "[" + box.minLon + "," + box.minLat + "," + box.maxLon + "," + box.maxLat + "]";
             JSONArray bbox = new JSONArray(bboxString);
-            paths.put("bbox", bbox);
-            // ----points
-            String encPoints = encodePolyline(pointList, false);
-            paths.put("points", encPoints);
-            // ----points_encoded
-            paths.put("points_encoded", true);
-            // ----time, distance
-            paths.put("distance", distance);
-            paths.put("time", millis);
-            // ----instructions
-            InstructionListSerializer ilSerializer = new InstructionListSerializer();
-            String instructionsString = new Gson().toJson(il.toString());
-//            JSONArray instr = new JSONArray(instructionsString);
-//            paths.put("instructions", instr);
-            paths.put("instructions", instructionsString);
+            jsonPath.put("bbox", bbox);
 
-            pathArray.put(paths);
-            jsonRsp.put("paths", pathArray);
+            // points
+            String encPoints = encodePolyline(pointList, false);
+            jsonPath.put("points", encPoints);
+
+            // points_encoded
+            jsonPath.put("points_encoded", true);
+
+            // time, distance
+            jsonPath.put("distance", distance);
+            jsonPath.put("time", millis);
+
+            // instructions
+            jsonPath.put("instructions", new JSONArray(serializeInstructions(instructions)));
+
+            pathArray.put(jsonPath);   // Add the path to the array of paths
         }
+
+        jsonRsp.put("paths", pathArray);
 
         // --info
         JSONObject info = new JSONObject();
@@ -178,6 +194,15 @@ public class Test {
         return jsonRsp;
     }
 
+    /**
+     * Perform a simple route calculation and print the best path details
+     *
+     * @param hopper  GraphHopper instance
+     * @param latFrom Start latitude
+     * @param lonFrom Start longitude
+     * @param latTo   End latitude
+     * @param lonTo   End longitude
+     */
     public static void simpleRoute(GraphHopper hopper, double latFrom, double lonFrom, double latTo, double lonTo) {
         System.out.println("Simple route...");
 
@@ -191,6 +216,15 @@ public class Test {
         printResponseDetails(rsp);
     }
 
+    /**
+     * Perform a simple route calculation with alternatives and print all paths
+     *
+     * @param hopper  GraphHopper instance
+     * @param latFrom Start latitude
+     * @param lonFrom Start longitude
+     * @param latTo   End latitude
+     * @param lonTo   End longitude
+     */
     public static void simpleRouteAlt(GraphHopper hopper, double latFrom, double lonFrom, double latTo, double lonTo) {
         System.out.println("Simple route with alternatives...");
 
@@ -204,22 +238,26 @@ public class Test {
         printAlternativeDetails(rsp);
     }
 
+    /**
+     * Perform a blocked route calculation and print the best path details
+     *
+     * @param hopper         GraphHopper instance with the blockArea set
+     * @param waypointsArray Array of waypoints (lat, lon)
+     */
     public static GHResponse blockedRoute(GraphHopper hopper, String[] waypointsArray) {
-        System.out.println("\nBlocked route...");
+        System.out.println("Blocked route...");
 
         GHRequest req = new GHRequest();
         for (String s : waypointsArray) {
-            double curLat = Double.parseDouble(s.split(",")[1]);
-            double curLon = Double.parseDouble(s.split(",")[0]);
+            double curLat = Double.parseDouble(s.split(",")[0]);
+            double curLon = Double.parseDouble(s.split(",")[1]);
 
             req.addPoint(new GHPoint(curLat, curLon));
         }
 
-        req //.setWeighting("block_area").setVehicle(_vehicle)
-                .setProfile(_vehicle)
-                .setLocale(Locale.ENGLISH);
+        req.setProfile(_vehicle).setLocale(Locale.ENGLISH);
 
-        // GH does not allow alt routes with >2 waypoints, so we manage this case disabling alt route for >2 waypoints
+        // GH does not allow alt routes with > 2 waypoints, so we manage this case disabling alt route for >2 waypoints
         if (waypointsArray.length > 2)
             req.setAlgorithm(_algorithm);
         else
@@ -248,8 +286,7 @@ public class Test {
 
         // translation
         TranslationMap trMap = new TranslationMap().doImport();
-        Locale l = new Locale("en");
-        Translation itTranslation = trMap.getWithFallBack(l);
+        Translation itTranslation = trMap.getWithFallBack(Locale.ENGLISH);
 
         InstructionList il = path.getInstructions();
         // iterate over every turn instruction
@@ -278,8 +315,7 @@ public class Test {
 
             // translation
             TranslationMap trMap = new TranslationMap().doImport();
-            Locale l = new Locale("it");
-            Translation itTranslation = trMap.getWithFallBack(l);
+            Translation itTranslation = trMap.getWithFallBack(Locale.ENGLISH);
 
             InstructionList il = path.getInstructions();
             // iterate over every turn instruction
@@ -291,20 +327,53 @@ public class Test {
         }
     }
 
+    public static String serializeInstructions(InstructionList instructions) {
 
+        List<Map<String, Object>> instrList = new ArrayList<>(instructions.size());
+        int pointsIndex = 0;
+
+        int tmpIndex;
+        for (Iterator<Instruction> iterator = instructions.iterator(); iterator.hasNext(); pointsIndex = tmpIndex) {
+            Instruction instruction = iterator.next();
+            Map<String, Object> instrJson = new HashMap<>();
+            instrList.add(instrJson);
+            instrJson.put("text", Helper.firstBig(instruction.getTurnDescription(instructions.getTr())));
+            instrJson.put("street_name", instruction.getName());
+            instrJson.put("time", instruction.getTime());
+            instrJson.put("distance", Helper.round(instruction.getDistance(), 3));
+            instrJson.put("sign", instruction.getSign());
+            instrJson.putAll(instruction.getExtraInfoJSON());
+            tmpIndex = pointsIndex + instruction.getLength();
+            instrJson.put("interval", Arrays.asList(pointsIndex, tmpIndex));
+        }
+
+        return new Gson().toJson(instrList.toArray());
+//        return new GsonBuilder().serializeSpecialFloatingPointValues().create().toJson(instrList);  // Needed because the default Gson().toJson(...) serializer does not serialize NaN and Infinity values
+    }
+
+    // --------------------------------------
     // Other utility methods (for developing)
+    // --------------------------------------
 
     /**
-     * Get closest node/edge from lat, long coords
-     * oppure:
-     * LocationIndex locationindex = myHopper.getLocationIndex();
-     * Snap qr = locationindex.findClosest(latFrom, lonFrom, EdgeFilter.ALL_EDGES);
+     * Get the closest node/edge from lat, long coordinates
+     *
+     * @param hopper GraphHopper instance
+     * @param lat    latitude of the point
+     * @param lon    longitude of the point
      */
     public static int getClosestNode(GraphHopper hopper, double lat, double lon) {
         Snap qr = hopper.getLocationIndex().findClosest(lat, lon, EdgeFilter.ALL_EDGES);
         return qr.getClosestNode();
     }
 
+    /**
+     * Get the closest edge from lat, long coordinates
+     *
+     * @param hopper GraphHopper instance
+     * @param lat    latitude of the point
+     * @param lon    longitude of the point
+     */
     public static EdgeIteratorState getClosestEdge(GraphHopper hopper, double lat, double lon) {
         Snap qr = hopper.getLocationIndex().findClosest(lat, lon, EdgeFilter.ALL_EDGES);
         return qr.getClosestEdge();
@@ -379,7 +448,7 @@ public class Test {
             int deltaLatitude = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
             lat += deltaLatitude;
 
-            // longitute
+            // longitude
             shift = 0;
             result = 0;
             do {
@@ -409,9 +478,7 @@ public class Test {
     }
 
     public static String encodePolyline(PointList poly) {
-        if (poly.isEmpty())
-            return "";
-
+        if (poly.isEmpty()) return "";
         return encodePolyline(poly, poly.is3D());
     }
 
