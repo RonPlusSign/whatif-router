@@ -13,30 +13,41 @@
 
 package com.dashboard.servlet;
 
-import javax.ws.rs.*;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
-
-import com.google.gson.Gson;
 import com.graphhopper.GHRequest;
 import com.graphhopper.GHResponse;
 import com.graphhopper.GraphHopper;
 import com.graphhopper.ResponsePath;
 import com.graphhopper.config.Profile;
-import com.graphhopper.routing.util.*;
+import com.graphhopper.routing.util.EdgeFilter;
+import com.graphhopper.routing.util.EncodingManager;
 import com.graphhopper.storage.GraphEdgeIdFinder;
 import com.graphhopper.storage.index.LocationIndex;
 import com.graphhopper.storage.index.Snap;
 import com.graphhopper.util.*;
-import com.graphhopper.util.shapes.*;
+import com.graphhopper.util.shapes.BBox;
+import com.graphhopper.util.shapes.Circle;
+import com.graphhopper.util.shapes.GHPoint;
+import com.graphhopper.util.shapes.Polygon;
+
+import com.google.gson.Gson;
+import org.apache.http.HttpEntity;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.HttpResponse;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.util.EntityUtils;
 
+import javax.ws.rs.*;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
 import java.util.*;
 
 @Path("/route")
 public class Test {
     static String _vehicle = "car";
+    static List<String> trafficSensors = List.of("METRO1", "METRO2", "METRO3", "METRO4", "METRO5", "METRO6", "METRO7", "METRO8", "METRO9", "METRO10", "METRO11", "METRO13", "METRO14", "METRO15", "METRO16", "METRO17", "METRO18", "METRO19", "METRO20", "METRO21", "METRO22", "METRO23", "METRO24", "METRO25", "METRO26", "METRO28", "METRO30", "METRO54", "METRO55", "METRO56", "METRO57", "METRO58", "METRO59", "METRO60", "METRO61", "METRO62", "METRO63", "METRO63", "METRO64", "METRO64", "METRO65", "METRO66", "METRO67", "METRO68", "METRO69", "METRO70", "METRO71", "METRO72", "METRO73", "METRO74", "METRO75", "METRO76", "METRO460", "METRO461", "METRO462", "METRO463", "METRO464", "METRO465", "METRO466", "METRO467", "METRO468", "METRO469", "METRO487", "METRO490", "METRO491", "METRO494", "METRO496", "METRO497", "METRO499", "METRO500", "METRO501", "METRO502", "METRO503", "METRO504", "METRO505", "METRO512", "METRO513", "METRO514", "METRO515", "METRO516", "METRO517", "METRO521", "METRO522", "METRO523", "METRO524", "METRO524", "METRO525", "METRO525", "METRO526", "METRO527", "METRO532", "METRO533", "METRO534", "METRO535", "METRO541", "METRO542", "METRO547", "METRO548", "METRO549", "METRO550", "METRO551", "METRO552", "METRO553", "METRO554", "METRO555", "METRO556", "METRO557", "METRO558", "METRO559", "METRO560", "METRO563", "METRO563", "METRO564", "METRO564", "METRO569", "METRO570", "METRO571", "METRO572", "METRO573", "METRO574", "METRO575", "METRO576", "METRO577", "METRO578", "METRO581", "METRO582", "METRO585", "METRO586", "METRO588", "METRO589", "METRO590", "METRO591", "METRO594", "METRO595", "METRO596", "METRO597", "METRO598", "METRO599", "METRO600", "METRO601", "METRO602", "METRO610", "METRO611", "METRO613", "METRO614", "METRO619", "METRO620", "METRO623", "METRO624", "METRO627", "METRO628", "METRO631", "METRO632", "METRO635", "METRO636", "METRO639", "METRO640", "METRO643", "METRO644", "METRO645", "METRO646", "METRO647", "METRO648", "METRO652", "METRO653", "METRO656", "METRO657", "METRO658", "METRO659", "METRO660", "METRO661", "METRO664", "METRO664", "METRO665", "METRO665", "METRO666", "METRO667", "METRO668", "METRO669", "METRO674", "METRO675", "METRO678", "METRO679", "METRO680", "METRO681", "METRO682", "METRO683", "METRO684", "METRO685", "METRO686", "METRO687", "METRO688", "METRO689", "METRO690", "METRO691", "METRO692", "METRO693", "METRO694", "METRO695", "METRO696", "METRO697", "METRO698", "METRO699", "METRO700", "METRO701", "METRO702", "METRO703", "METRO704", "METRO705", "METRO706", "METRO707", "METRO709", "METRO710", "METRO711", "METRO712", "METRO713", "METRO714", "METRO715", "METRO716", "METRO717", "METRO719", "METRO720", "METRO722", "METRO723", "METRO724", "METRO725", "METRO726", "METRO727", "METRO728", "METRO729", "METRO730", "METRO731", "METRO732", "METRO733", "METRO734", "METRO735", "METRO736", "METRO737", "METRO738", "METRO739", "METRO740", "METRO741", "METRO742", "METRO743", "METRO744", "METRO745", "METRO747", "METRO748", "METRO749", "METRO750", "METRO751", "METRO752", "METRO753", "METRO754", "METRO755", "METRO756", "METRO757", "METRO758", "METRO759", "METRO760", "METRO761", "METRO762", "METRO763", "METRO764", "METRO765", "METRO766", "METRO767", "METRO768", "METRO769", "METRO770", "METRO771", "METRO772", "METRO773", "METRO774", "METRO775", "METRO776", "METRO777", "METRO778", "METRO779", "METRO780", "METRO781", "METRO782", "METRO783", "METRO784", "METRO785", "METRO786", "METRO788", "METRO789", "METRO790", "METRO791", "METRO792", "METRO793", "METRO794", "METRO795", "METRO796", "METRO797", "METRO798", "METRO799", "METRO800", "METRO801", "METRO802", "METRO803", "METRO804", "METRO806", "METRO807", "METRO812", "METRO814", "METRO830", "METRO831", "METRO837", "METRO839", "METRO840", "METRO841", "METRO842", "METRO843", "METRO844", "METRO845", "METRO846", "METRO847", "METRO848", "METRO849", "METRO850", "METRO851", "METRO852", "METRO853", "METRO854", "METRO856", "METRO857", "METRO858", "METRO859", "METRO860", "METRO861", "METRO862", "METRO864", "METRO865", "METRO866", "METRO870", "METRO871", "METRO872", "METRO873", "METRO874", "METRO875", "METRO876", "METRO877", "METRO878", "METRO879", "METRO880", "METRO881", "METRO882", "METRO883", "METRO884", "METRO885", "METRO886", "METRO887", "METRO888", "METRO889", "METRO890", "METRO891");
     final static String _algorithm = Parameters.Algorithms.DIJKSTRA_BI;
 
     /**
@@ -83,6 +94,10 @@ public class Test {
 //                "{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"properties\":{\"radius\":148.31828400014956},\"geometry\":{\"type\":\"Point\",\"coordinates\":[43.777663,11.268089]}}],\"scenarioName\":\"gia pan - sce01\",\"isPublic\":false}",
 //                "43.783860157932395,11.261587142944338;43.76582535876258,11.271286010742188"
 //        );
+
+        for (int i = 0; i < trafficSensors.size(); i++) {
+            System.out.println((i + 1) + "/" + trafficSensors.size() + ") " + trafficSensorRequest(trafficSensors.get(i)));
+        }
     }
 
     public static DynamicGH initGH(String _vehicle) {
@@ -351,6 +366,54 @@ public class Test {
 //        return new GsonBuilder().serializeSpecialFloatingPointValues().create().toJson(instrList);  // Needed because the default Gson().toJson(...) serializer does not serialize NaN and Infinity values
     }
 
+    /**
+     * Make a GET request to the traffic sensor API and parse the response
+     *
+     * @param sensorId ID of the traffic sensor to query
+     *
+     * @return TrafficSensorResponse object containing the sensor information and realtime data
+     */
+    public static TrafficSensorResponse trafficSensorRequest(String sensorId) {
+        String url = "https://servicemap.disit.org/WebAppGrafo/api/v1/?serviceUri=http://www.disit.org/km4city/resource/iot/orionUNIFI/DISIT/" + sensorId;
+
+        // Make a GET request to the URL, that returns a JSON object with the sensor information and realtime data
+        HttpClient httpClient = HttpClients.createDefault();
+        HttpGet httpGet = new HttpGet(url);
+
+        try {
+            // Execute the HTTP GET request
+            HttpResponse response = httpClient.execute(httpGet);
+
+            // Check if the response status is OK (HTTP 200)
+            if (response.getStatusLine().getStatusCode() == 200) {
+                HttpEntity entity = response.getEntity();
+                if (entity != null) {
+                    // Parse the JSON response
+                    String result = EntityUtils.toString(entity);
+                    JSONObject json = new JSONObject(result);
+
+                    // Get the coordinates of the sensor
+                    JSONArray coordinates = json.getJSONObject("Service").getJSONArray("features").getJSONObject(0).getJSONObject("geometry").getJSONArray("coordinates");
+                    JSONObject properties = json.getJSONObject("Service").getJSONArray("features").getJSONObject(0).getJSONObject("properties");
+                    String address = properties.getString("address");
+                    String name = properties.getString("name");
+                    double averageSpeed = json.getJSONObject("realtime").getJSONObject("results").getJSONArray("bindings").getJSONObject(0).getJSONObject("averageSpeed").getDouble("value");
+
+                    return new TrafficSensorResponse(sensorId, coordinates.getDouble(0), coordinates.getDouble(1), address, averageSpeed);
+                }
+                else { // No entity received as response
+                    System.err.println("HTTP GET request failed: no entity");
+                }
+            }
+            else {  // Response status is not OK
+                System.err.println("HTTP GET request failed with status code: " + response.getStatusLine().getStatusCode());
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
     // --------------------------------------
     // Other utility methods (for developing)
     // --------------------------------------
@@ -471,7 +534,8 @@ public class Test {
                 int deltaElevation = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
                 ele += deltaElevation;
                 poly.add((double) lat / 1e5, (double) lng / 1e5, (double) ele / 100);
-            } else
+            }
+            else
                 poly.add((double) lat / 1e5, (double) lng / 1e5);
         }
         return poly;
