@@ -5,13 +5,15 @@ public class TrafficSensorResponse {
     private double latitude, longitude;
     private String address;
     private double averageSpeed;
+    private double congestionLevel;
 
-    public TrafficSensorResponse(String sensorId, double latitude, double longitude, String address, double averageSpeed) {
+    public TrafficSensorResponse(String sensorId, double latitude, double longitude, String address, double averageSpeed, double congestionLevel) {
         this.sensorId = sensorId;
         this.latitude = latitude;
         this.longitude = longitude;
         this.address = address;
         this.averageSpeed = averageSpeed;
+        this.congestionLevel = congestionLevel;
     }
 
     public String getSensorId() {
@@ -54,6 +56,14 @@ public class TrafficSensorResponse {
         this.averageSpeed = averageSpeed;
     }
 
+    public double getCongestionLevel() {
+        return congestionLevel;
+    }
+
+    public void setCongestionLevel(double congestionLevel) {
+        this.congestionLevel = congestionLevel;
+    }
+
     @Override
     public String toString() {
         return "TrafficSensorResponse {" +
@@ -62,6 +72,7 @@ public class TrafficSensorResponse {
                 ", longitude=" + longitude +
                 ", address='" + address + '\'' +
                 ", averageSpeed=" + averageSpeed +
+                ", congestionLevel=" + congestionLevel +
                 " }";
     }
 }
