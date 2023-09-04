@@ -31,7 +31,7 @@ import java.io.IOException;
 import java.util.*;
 
 
-public class DynamicGH extends GraphHopper {
+public class DynamicGraphHopper extends GraphHopper {
     private GraphEdgeIdFinder.BlockArea blockArea;
 
 
@@ -43,7 +43,7 @@ public class DynamicGH extends GraphHopper {
     private List<Long> edgeToWayMap = new ArrayList<>();
 
 
-    public DynamicGH() {
+    public DynamicGraphHopper() {
         super();
     }
 
@@ -78,7 +78,7 @@ public class DynamicGH extends GraphHopper {
      * This will also create and save the mappings between the way and the edges that belong to it (or load them if it isn't the first execution).
      */
     @Override
-    public DynamicGH importOrLoad() {
+    public DynamicGraphHopper importOrLoad() {
         if (!load()) {
             // If the graph cannot be loaded, then create it
             process(false);

@@ -27,14 +27,8 @@ import com.graphhopper.util.shapes.GHPoint;
 import com.graphhopper.util.shapes.Polygon;
 
 import com.google.gson.Gson;
-import org.apache.http.HttpEntity;
 import org.json.JSONArray;
 import org.json.JSONObject;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.HttpResponse;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.http.util.EntityUtils;
 
 import javax.ws.rs.*;
 import javax.ws.rs.core.MediaType;
@@ -62,7 +56,7 @@ public class Test {
         _vehicle = vehicle;
 
         // 1: init GH
-        DynamicGH hopper = initGH(_vehicle);
+        DynamicGraphHopper hopper = initGH(_vehicle);
 
         // 2. If there's an avoidArea, set the weighting to block_area and apply the avoidArea
         if (avoidArea != null && !avoidArea.isEmpty()) {
@@ -94,12 +88,12 @@ public class Test {
 //        );
     }
 
-    public static DynamicGH initGH(String _vehicle) {
+    public static DynamicGraphHopper initGH(String _vehicle) {
         // Create EncodingManager for the selected vehicle (car, foot, bike)
         final EncodingManager vehicleManager = EncodingManager.create(_vehicle);
 
         // create one GraphHopper instance
-        DynamicGH hopper = new DynamicGH();
+        DynamicGraphHopper hopper = new DynamicGraphHopper();
         hopper.setOSMFile("toscana.osm.pbf");
         hopper.setGraphHopperLocation("toscana_map-gh");
         // hopper.clean();
@@ -110,7 +104,7 @@ public class Test {
         return hopper;
     }
 
-    public static void blockAreaSetup(DynamicGH hopper, String avoidArea) {
+    public static void blockAreaSetup(DynamicGraphHopper hopper, String avoidArea) {
 
         JSONObject jsonData = new JSONObject(avoidArea);
         GraphEdgeIdFinder.BlockArea blockArea = new GraphEdgeIdFinder.BlockArea(hopper.getBaseGraph());
@@ -143,7 +137,7 @@ public class Test {
     }
 
     // build response json as required by leaflet routing machine
-    public static JSONObject buildFormattedResponse(DynamicGH hopper, GHResponse response) {
+    public static JSONObject buildFormattedResponse(DynamicGraphHopper hopper, GHResponse response) {
         JSONObject jsonRsp = new JSONObject();
 
         // Use all paths
