@@ -359,55 +359,6 @@ public class Test {
 //        return new GsonBuilder().serializeSpecialFloatingPointValues().create().toJson(instrList);  // Needed because the default Gson().toJson(...) serializer does not serialize NaN and Infinity values
     }
 
-    /**
-     * Make a GET request to the traffic sensor API and parse the response
-     *
-     * @param sensorId ID of the traffic sensor to query
-     *
-     * @return TrafficSensorResponse object containing the sensor information and realtime data
-     */
-    public static TrafficSensorResponse trafficSensorRequest(String sensorId) {
-        String url = "https://servicemap.disit.org/WebAppGrafo/api/v1/?serviceUri=http://www.disit.org/km4city/resource/iot/orionUNIFI/DISIT/" + sensorId;
-
-        // Make a GET request to the URL, that returns a JSON object with the sensor information and realtime data
-        HttpClient httpClient = HttpClients.createDefault();
-        HttpGet httpGet = new HttpGet(url);
-
-        try {
-            // Execute the HTTP GET request
-            HttpResponse response = httpClient.execute(httpGet);
-
-            // Check if the response status is OK (HTTP 200)
-            if (response.getStatusLine().getStatusCode() == 200) {
-                HttpEntity entity = response.getEntity();
-                if (entity != null) {
-                    // Parse the JSON response
-                    String result = EntityUtils.toString(entity);
-                    JSONObject json = new JSONObject(result);
-
-                    // Get the coordinates of the sensor
-                    JSONArray coordinates = json.getJSONObject("Service").getJSONArray("features").getJSONObject(0).getJSONObject("geometry").getJSONArray("coordinates");
-                    JSONObject properties = json.getJSONObject("Service").getJSONArray("features").getJSONObject(0).getJSONObject("properties");
-                    String address = properties.getString("address");
-                    String name = properties.getString("name");
-                    double averageSpeed = json.getJSONObject("realtime").getJSONObject("results").getJSONArray("bindings").getJSONObject(0).getJSONObject("averageSpeed").getDouble("value");
-                    double congestionLevel = json.getJSONObject("realtime").getJSONObject("results").getJSONArray("bindings").getJSONObject(0).getJSONObject("congestionLevel").getDouble("value");
-
-                    return new TrafficSensorResponse(sensorId, coordinates.getDouble(0), coordinates.getDouble(1), address, averageSpeed, congestionLevel);
-                }
-                else { // No entity received as response
-                    System.err.println("HTTP GET request failed: no entity");
-                }
-            }
-            else {  // Response status is not OK
-                System.err.println("HTTP GET request failed with status code: " + response.getStatusLine().getStatusCode());
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return null;
-    }
-
     // --------------------------------------
     // Other utility methods (for developing)
     // --------------------------------------
