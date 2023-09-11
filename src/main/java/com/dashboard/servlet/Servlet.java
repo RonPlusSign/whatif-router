@@ -33,6 +33,7 @@ import org.json.JSONObject;
 import javax.ws.rs.*;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import java.time.LocalDateTime;
 import java.util.*;
 
 @Path("/route")
@@ -45,28 +46,29 @@ public class Servlet {
      *
      * @param avoidArea FeatureCollection object (in GeoJSON format) containing the areas to avoid in routing calculation
      * @param waypoints Routing lat/lng waypoints separated by ';'
-     *
      * @return the Response object expected from GraphHopper Leaflet Routing Machine
      */
     @GET
     @Produces(MediaType.TEXT_PLAIN)
     public static Response getRoute(@DefaultValue("car") @QueryParam("vehicle") String vehicle,
                                     @DefaultValue("") @QueryParam("avoid_area") String avoidArea,
-                                    @DefaultValue("") @QueryParam("waypoints") String waypoints) {
+                                    @DefaultValue("") @QueryParam("waypoints") String waypoints,
+                                    @DefaultValue("") @QueryParam("startDatetime") String startTimestamp,
+                                    @DefaultValue("fastest") @QueryParam("weighting") String weighting) {
         _vehicle = vehicle;
 
+        // If the startDatetime is not specified, use the current datetime
+        LocalDateTime startDatetime;
+        if (startTimestamp.isEmpty()) startDatetime = LocalDateTime.now();
+        else startDatetime = LocalDateTime.parse(startTimestamp);
+
         // 1: init GH
-        DynamicGraphHopper hopper = initGH(_vehicle);
+        DynamicGraphHopper hopper = initGH(_vehicle, weighting, startDatetime);
 
-        // 2. If there's an avoidArea, set the weighting to block_area and apply the avoidArea
-        if (avoidArea != null && !avoidArea.isEmpty()) {
-            hopper.getProfiles().get(0).setWeighting("block_area");
-
-            // extract barriers and apply them
-            blockAreaSetup(hopper, avoidArea);
+        // 2. If there's an avoidArea, apply the avoidArea
+        if (!avoidArea.isEmpty()) {
+            blockAreaSetup(hopper, avoidArea);  // extract barriers and apply them
         }
-
-        // TODO: Handle traffic and air quality data
 
         // 3: extract waypoints
         String[] waypointsArray = waypoints.split(";");
@@ -82,22 +84,24 @@ public class Servlet {
 
     public static void main(String[] args) {
         // Uncomment the following lines to test the routing methods
-//        getRoute("bike",
+//        getRoute("car",
 //                "{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"properties\":{\"radius\":148.31828400014956},\"geometry\":{\"type\":\"Point\",\"coordinates\":[43.777663,11.268089]}}],\"scenarioName\":\"gia pan - sce01\",\"isPublic\":false}",
-//                "43.783860157932395,11.261587142944338;43.76582535876258,11.271286010742188"
+//                "43.783860157932395,11.261587142944338;43.76582535876258,11.271286010742188",
+//                "",
+//                "fastest_with_traffic"
 //        );
     }
 
-    public static DynamicGraphHopper initGH(String _vehicle) {
+    public static DynamicGraphHopper initGH(String _vehicle, String weighting, LocalDateTime startDatetime) {
         // Create EncodingManager for the selected vehicle (car, foot, bike)
         final EncodingManager vehicleManager = EncodingManager.create(_vehicle);
 
         // create one GraphHopper instance
-        DynamicGraphHopper hopper = new DynamicGraphHopper();
+        DynamicGraphHopper hopper = new DynamicGraphHopper(startDatetime);
         hopper.setOSMFile("toscana.osm.pbf");
         hopper.setGraphHopperLocation("toscana_map-gh");
         // hopper.clean();
-        hopper.setProfiles(new Profile(_vehicle).setVehicle(_vehicle));
+        hopper.setProfiles(new Profile(_vehicle).setVehicle(_vehicle).setWeighting(weighting));
 
         // now this can take minutes if it imports or a few seconds for loading (of course this is dependent on the area you import)
         hopper.importOrLoad();
@@ -105,7 +109,6 @@ public class Servlet {
     }
 
     public static void blockAreaSetup(DynamicGraphHopper hopper, String avoidArea) {
-
         JSONObject jsonData = new JSONObject(avoidArea);
         GraphEdgeIdFinder.BlockArea blockArea = new GraphEdgeIdFinder.BlockArea(hopper.getBaseGraph());
 
@@ -142,8 +145,6 @@ public class Servlet {
 
         // Use all paths
         List<ResponsePath> allPathsList = response.getAll();
-
-        System.out.println("All paths: " + allPathsList.size());
 
         // paths
         JSONArray pathArray = new JSONArray();
@@ -214,7 +215,6 @@ public class Servlet {
                 .setAlgorithm(_algorithm);
 
         GHResponse rsp = hopper.route(req);
-
         printResponseDetails(rsp);
     }
 
@@ -236,14 +236,13 @@ public class Servlet {
                 .setAlgorithm(_algorithm);
 
         GHResponse rsp = hopper.route(req);
-
         printAlternativeDetails(rsp);
     }
 
     /**
-     * Perform a blocked route calculation and print the best path details
+     * Perform a route calculation and print the best path details
      *
-     * @param hopper         GraphHopper instance with the blockArea set
+     * @param hopper         GraphHopper instance (could have a blockArea set)
      * @param waypointsArray Array of waypoints (lat, lon)
      */
     public static GHResponse blockedRoute(GraphHopper hopper, String[] waypointsArray) {
