@@ -37,11 +37,13 @@ public class FastestWeightingWithTraffic extends FastestWeighting {
     // Save mapping between edge id and its way id
     // NOTE: Edge ids are incremental, starting from 0.
     // It means I can use a simple list in order to store the mapping between edge (whose is is the position) way id (the value, representing the way id)
-    private List<Long> edgeToWayMap = new ArrayList<>();
+    private final List<Long> edgeToWayMap;
 
     // Traffic data of the day and hour of the start of the routing.
     // RoadElement id => Pair of average traffic density and maximum traffic density for that road element
     private final Map<String, Pair<Float, Float>> trafficData = new HashMap<>();
+
+    private final double maxSpeed;  // Maximum speed of the considered road
 
     public FastestWeightingWithTraffic(Map<String, Pair<Float, Float>> trafficData, BooleanEncodedValue accessEnc, DecimalEncodedValue speedEnc, Map<Long, List<Integer>> wayToEdgesMap, List<Long> edgeToWayMap) {
         this(trafficData, accessEnc, speedEnc, TurnCostProvider.NO_TURN_COST_PROVIDER, wayToEdgesMap, edgeToWayMap);
@@ -52,18 +54,26 @@ public class FastestWeightingWithTraffic extends FastestWeighting {
         this.wayToEdgesMap = wayToEdgesMap;
         this.edgeToWayMap = edgeToWayMap;
         this.trafficData.putAll(trafficData);
+        maxSpeed = speedEnc.getMaxOrMaxStorableDecimal() / SPEED_CONV;
     }
 
     @Override
     public double calcEdgeWeight(EdgeIteratorState edgeState, boolean reverse) {
         try {
-            return super.calcEdgeWeight(edgeState, reverse) * getTrafficFactor(edgeState);
+            return getEdgeTravelTime(edgeState);
         } catch (IndexOutOfBoundsException e) { // If the edge is not in the map, it means that I can't get its traffic data
             return super.calcEdgeWeight(edgeState, reverse);
         }
     }
 
-    private double getTrafficFactor(EdgeIteratorState edgeState) {
+    /**
+     * Use the traffic data to calculate the travel time of the edge.
+     * If the edge is not in the map, it means that I can't get its traffic data, so I .
+     *
+     * @param edgeState edge to calculate the travel time of
+     * @return the travel time of the edge
+     */
+    private double getEdgeTravelTime(EdgeIteratorState edgeState) {
 
         // Get the traffic data for each road element that belongs to the way (the RoadElement id contains the Way id)
         long wayId = edgeToWayMap.get(edgeState.getEdge());
@@ -84,14 +94,14 @@ public class FastestWeightingWithTraffic extends FastestWeighting {
         // Calculate the average traffic density
         float averageDensity = averageDensityList.stream().reduce(0f, Float::sum) / averageDensityList.size();
 
-        // If the way has no traffic data, return 1 (no congestion)
-        if (roadElementsOfWay.isEmpty()) return 1;
-        // If the average traffic density is greater than the maximum traffic density, return 0 (critical condition, the road is blocked from the traffic)
-        if (averageDensity > maxDensity) return 0;
-        // If the traffic density is less than a third of the maximum traffic density, return 1 (I consider the traffic density to be negligible, it's a normal condition)
-        if (averageDensity < maxDensity / 3) return 1;
+        // If the way has no traffic data, return the travel time of the edge without considering the traffic
+        if (roadElementsOfWay.isEmpty()) return super.calcEdgeWeight(edgeState, false);
+        // If the average traffic density is greater than the maximum traffic density, return infinity (critical condition, the road is blocked from the traffic)
+        if (averageDensity > maxDensity) return Double.POSITIVE_INFINITY;
 
-        return 1 - averageDensity / maxDensity; // Calculate the traffic factor
+        // Calculate the speed
+        double speed = maxSpeed * (1 - averageDensity / maxDensity);    // As the density increases, the speed decreases (Greenshield's model)
+        return edgeState.getDistance() / speed * SPEED_CONV;
     }
 
     @Override
