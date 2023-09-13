@@ -31,9 +31,6 @@ import java.util.Map;
  */
 public class FastestWeightingWithTraffic extends FastestWeighting {
 
-    // Mapping between the edge ids and way ids
-    private Map<Long, List<Integer>> wayToEdgesMap = new HashMap<>();
-
     // Save mapping between edge id and its way id
     // NOTE: Edge ids are incremental, starting from 0.
     // It means I can use a simple list in order to store the mapping between edge (whose is is the position) way id (the value, representing the way id)
@@ -45,13 +42,12 @@ public class FastestWeightingWithTraffic extends FastestWeighting {
 
     private final double maxSpeed;  // Maximum speed of the considered road
 
-    public FastestWeightingWithTraffic(Map<String, Pair<Float, Float>> trafficData, BooleanEncodedValue accessEnc, DecimalEncodedValue speedEnc, Map<Long, List<Integer>> wayToEdgesMap, List<Long> edgeToWayMap) {
-        this(trafficData, accessEnc, speedEnc, TurnCostProvider.NO_TURN_COST_PROVIDER, wayToEdgesMap, edgeToWayMap);
+    public FastestWeightingWithTraffic(Map<String, Pair<Float, Float>> trafficData, BooleanEncodedValue accessEnc, DecimalEncodedValue speedEnc, List<Long> edgeToWayMap) {
+        this(trafficData, accessEnc, speedEnc, TurnCostProvider.NO_TURN_COST_PROVIDER, edgeToWayMap);
     }
 
-    public FastestWeightingWithTraffic(Map<String, Pair<Float, Float>> trafficData, BooleanEncodedValue accessEnc, DecimalEncodedValue speedEnc, TurnCostProvider tcProvider, Map<Long, List<Integer>> wayToEdgesMap, List<Long> edgeToWayMap) {
+    public FastestWeightingWithTraffic(Map<String, Pair<Float, Float>> trafficData, BooleanEncodedValue accessEnc, DecimalEncodedValue speedEnc, TurnCostProvider tcProvider, List<Long> edgeToWayMap) {
         super(accessEnc, speedEnc, tcProvider);
-        this.wayToEdgesMap = wayToEdgesMap;
         this.edgeToWayMap = edgeToWayMap;
         this.trafficData.putAll(trafficData);
         maxSpeed = speedEnc.getMaxOrMaxStorableDecimal() / SPEED_CONV;

@@ -37,9 +37,6 @@ import java.util.*;
 public class DynamicGraphHopper extends GraphHopper {
     private GraphEdgeIdFinder.BlockArea blockArea;  // Area to avoid during routing
 
-    // Mapping between the edge ids and way ids
-    private Map<Long, List<Integer>> wayToEdgesMap = new HashMap<>();
-
     // Save mapping between edge id and its way id
     // NOTE: Edge ids are incremental, starting from 0. It means I can use a simple list in order to store the mapping between edge (whose is is the position) way id (the value, representing the way id)
     private List<Long> edgeToWayMap = new ArrayList<>();
@@ -52,10 +49,10 @@ public class DynamicGraphHopper extends GraphHopper {
     public DynamicGraphHopper(LocalDateTime startTimestamp) {
         super();
         loadTrafficData(startTimestamp);
-        if (wayToEdgesMap.isEmpty() || edgeToWayMap.isEmpty()) {
-            // Check if the files containing the mappings between the way and the edges exist, and if so, deserialize them
-            if (new File(getGraphHopperLocation() + "/wayToEdgesMap.json").exists() && new File(getGraphHopperLocation() + "/edgeToWayMap.json").exists())
-                deserializeMappings();
+        if (edgeToWayMap.isEmpty()) {
+            // Check if the file containing the mappings between the edges and the ways exist, and if so, deserialize it
+            if (new File(getGraphHopperLocation() + "/edgeToWayMap.json").exists())
+                deserializeMapping();
         }
     }
 
@@ -72,11 +69,11 @@ public class DynamicGraphHopper extends GraphHopper {
         WeightingFactory result;
 
         if (weighting.equals("fastest_with_traffic")) {
-            if (wayToEdgesMap.isEmpty() || edgeToWayMap.isEmpty()) {
+            if (edgeToWayMap.isEmpty()) {
                 result = (Profile profile, PMap hints, boolean disableTurnCosts) -> new FastestWeighting(accessEnc, speedEnc);
             }
             else {
-                result = (Profile profile, PMap hints, boolean disableTurnCosts) -> new FastestWeightingWithTraffic(trafficData, accessEnc, speedEnc, wayToEdgesMap, edgeToWayMap);
+                result = (Profile profile, PMap hints, boolean disableTurnCosts) -> new FastestWeightingWithTraffic(trafficData, accessEnc, speedEnc, edgeToWayMap);
             }
         }
         // Other default weightings, like "shortest", "short_fastest", etc. See https://github.com/graphhopper/graphhopper/blob/master/docs/core/profiles.md
@@ -114,25 +111,21 @@ public class DynamicGraphHopper extends GraphHopper {
             reader.setFile(new File(getOSMFile()));
             try {
                 reader.readGraph();
-                wayToEdgesMap = reader.getWayToEdgesMap();
                 edgeToWayMap = reader.getEdgeToWayMap();
-                serializeMappings();    // Save the mappings between the way and the edges
+                serializeMapping();    // Save the mappings between the way and the edges
             } catch (IOException e) {
                 System.out.println("Error while reading the graph");
             }
         }
-        else deserializeMappings();  // Load the mappings between the way and the edges
+        else deserializeMapping();  // Load the mappings between the way and the edges
         return this;
     }
 
     /**
-     * Serialize the mappings between the way and the edges that belong to it, saving them in a file
+     * Serialize the mappings between the edge and the way in which it belongs, saving them in a file
      */
-    private void serializeMappings() {
+    private void serializeMapping() {
         try {
-            // Serialize the wayToEdgesMap
-            FileUtils.writeLines(new File(getGraphHopperLocation() + "/wayToEdgesMap.json"), Collections.singleton(new JSONObject(wayToEdgesMap)));
-
             // Serialize the edgeToWayMap
             FileUtils.writeLines(new File(getGraphHopperLocation() + "/edgeToWayMap.json"), Collections.singleton(new JSONArray(edgeToWayMap)));
         } catch (IOException e) {
@@ -141,29 +134,11 @@ public class DynamicGraphHopper extends GraphHopper {
     }
 
     /**
-     * Read the mappings between the way and the edges that belong to it, saved in a file and deserialize them (recreate the wayToEdgesMap and the edgeToWayMap)
+     * Read the mappings between the edge and the way in which it belongs, saved in a file and deserialize them (recreate the edgeToWayMap)
      */
-    private void deserializeMappings() {
-        // Deserialize the wayToEdgesMap
+    private void deserializeMapping() {
         try {
-            String json = FileUtils.readFileToString(new File(getGraphHopperLocation() + "/wayToEdgesMap.json"));
-            JSONObject jsonObject = new JSONObject(json);
-            jsonObject.keys().forEachRemaining(keyStr -> {
-                // For each way, get the list of edges that belong to it
-                List<Integer> edges = new ArrayList<>();
-                JSONArray jsonArray = jsonObject.getJSONArray(keyStr);
-                for (int i = 0; i < jsonArray.length(); i++)
-                    edges.add(jsonArray.getInt(i));
-
-                // Add the way and the list of edges to the wayToEdgesMap
-                wayToEdgesMap.put(Long.parseLong(keyStr), edges);
-            });
-        } catch (IOException e) {
-            System.out.println("Error while deserializing the wayToEdgesMap");
-        }
-
-        // Deserialize the edgeToWayMap
-        try {
+            // Deserialize the edgeToWayMap
             String json = FileUtils.readFileToString(new File(getGraphHopperLocation() + "/edgeToWayMap.json"));
             JSONArray jsonArray = new JSONArray(json);
             // For each edge, get the way it belongs to
