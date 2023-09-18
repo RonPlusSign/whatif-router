@@ -349,7 +349,6 @@ public class Servlet {
         }
 
         return new Gson().toJson(instrList.toArray());
-//        return new GsonBuilder().serializeSpecialFloatingPointValues().create().toJson(instrList);  // Needed because the default Gson().toJson(...) serializer does not serialize NaN and Infinity values
     }
 
     // --------------------------------------
