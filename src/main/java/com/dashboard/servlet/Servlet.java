@@ -78,6 +78,7 @@ public class Servlet {
 
         // 5: build response
         JSONObject jsonResponse = buildFormattedResponse(hopper, response);
+        System.out.println(jsonResponse);
         return Response.ok(jsonResponse.toString()).header("Access-Control-Allow-Origin", "*").build();
     }
 
@@ -85,10 +86,10 @@ public class Servlet {
     public static void main(String[] args) {
         // Uncomment the following lines to test the routing methods
 //        getRoute("car",
-//                "{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"properties\":{\"radius\":148.31828400014956},\"geometry\":{\"type\":\"Point\",\"coordinates\":[43.777663,11.268089]}}],\"scenarioName\":\"gia pan - sce01\",\"isPublic\":false}",
-//                "43.783860157932395,11.261587142944338;43.76582535876258,11.271286010742188",
+//                "{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"properties\":{\"radius\":148.31828400014956},\"geometry\":{\"type\":\"Point\",\"coordinates\":[11.268089,43.777663]}}],\"scenarioName\":\"gia pan - sce01\",\"isPublic\":false}",
+//                "11.261587142944338,43.783860157932395;11.271286010742188,43.76582535876258",
 //                "",
-//                "fastest_with_traffic"
+//                "fastest"
 //        );
     }
 
@@ -99,7 +100,7 @@ public class Servlet {
         // create one GraphHopper instance
         DynamicGraphHopper hopper = new DynamicGraphHopper(startDatetime);
         hopper.setOSMFile("toscana.osm.pbf");
-        hopper.setGraphHopperLocation("toscana_map-gh");
+        hopper.setGraphHopperLocation("toscana_" + _vehicle + "_map-gh");
         // hopper.clean();
         hopper.setProfiles(new Profile(_vehicle).setVehicle(_vehicle).setWeighting(weighting));
 
@@ -120,20 +121,20 @@ public class Servlet {
             String type = feature.getJSONObject("geometry").getString("type");
 
             if (type.equals("Point")) {
-                blockArea.add(new Circle(coords.getDouble(0), coords.getDouble(1), 1));
+                blockArea.add(new Circle(coords.getDouble(1), coords.getDouble(0), 1));
             }
             if (type.equals("Polygon")) {
                 double[] lats = new double[coords.getJSONArray(0).length()];
                 double[] lons = new double[coords.getJSONArray(0).length()];
                 for (i = 0; i < coords.getJSONArray(0).length(); i++) {
-                    lats[i] = coords.getJSONArray(0).getJSONArray(i).getDouble(0);
-                    lons[i] = coords.getJSONArray(0).getJSONArray(i).getDouble(1);
+                    lats[i] = coords.getJSONArray(0).getJSONArray(i).getDouble(1);
+                    lons[i] = coords.getJSONArray(0).getJSONArray(i).getDouble(0);
                 }
                 blockArea.add(new Polygon(lats, lons));
             }
             if (type.equals("Point") && feature.getJSONObject("properties").has("radius")) {      // circle
                 double radius = feature.getJSONObject("properties").getDouble("radius");
-                blockArea.add(new Circle(coords.getDouble(0), coords.getDouble(1), radius));
+                blockArea.add(new Circle(coords.getDouble(1), coords.getDouble(0), radius));
             }
         }
         hopper.setBlockArea(blockArea);
@@ -250,8 +251,8 @@ public class Servlet {
 
         GHRequest req = new GHRequest();
         for (String s : waypointsArray) {
-            double curLat = Double.parseDouble(s.split(",")[0]);
-            double curLon = Double.parseDouble(s.split(",")[1]);
+            double curLat = Double.parseDouble(s.split(",")[1]);
+            double curLon = Double.parseDouble(s.split(",")[0]);
 
             req.addPoint(new GHPoint(curLat, curLon));
         }

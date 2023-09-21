@@ -64,7 +64,7 @@ public class FastestWeightingWithTraffic extends FastestWeighting {
 
     /**
      * Use the traffic data to calculate the travel time of the edge.
-     * If the edge is not in the map, it means that I can't get its traffic data, so I .
+     * If the edge is not in the map, it means that I can't get its traffic data, so I calculate the travel time at max speed.
      *
      * @param edgeState edge to calculate the travel time of
      * @return the travel time of the edge
