@@ -9,8 +9,8 @@
     <version>1.0-SNAPSHOT</version>
     <packaging>war</packaging>
     <properties>
-        <maven.compiler.source>17</maven.compiler.source>
-        <maven.compiler.target>17</maven.compiler.target>
+        <maven.compiler.source>8</maven.compiler.source>
+        <maven.compiler.target>8</maven.compiler.target>
     </properties>
 
     <build>
@@ -29,7 +29,7 @@
         <dependency>
             <groupId>com.sun.jersey</groupId>
             <artifactId>jersey-bundle</artifactId>
-            <version>1.18.3</version>
+            <version>1.19.1</version>
         </dependency>
         <dependency>
             <groupId>com.graphhopper</groupId>
@@ -40,7 +40,7 @@
         <dependency>
             <groupId>org.json</groupId>
             <artifactId>json</artifactId>
-            <version>20180813</version>
+            <version>20230618</version>
         </dependency>
         <!--  Gson: Java to Json conversion -->
         <dependency>
@@ -48,12 +48,6 @@
             <artifactId>gson</artifactId>
             <version>2.10.1</version>
             <scope>compile</scope>
-        </dependency>
-        <!-- HttpClient -->
-        <dependency>
-            <groupId>org.apache.httpcomponents</groupId>
-            <artifactId>httpclient</artifactId>
-            <version>4.5.14</version>
         </dependency>
     </dependencies>
 </project>
