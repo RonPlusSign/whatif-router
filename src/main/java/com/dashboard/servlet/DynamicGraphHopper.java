@@ -91,7 +91,6 @@ public class DynamicGraphHopper extends GraphHopper {
     }
 
     public void setBlockArea(GraphEdgeIdFinder.BlockArea ba) {
-        blockArea = new GraphEdgeIdFinder.BlockArea(this.getBaseGraph());   // Reset blockArea
         blockArea = ba;
     }
 

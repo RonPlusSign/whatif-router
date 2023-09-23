@@ -78,7 +78,6 @@ public class Servlet {
 
         // 5: build response
         JSONObject jsonResponse = buildFormattedResponse(hopper, response);
-        System.out.println(jsonResponse);
         return Response.ok(jsonResponse.toString()).header("Access-Control-Allow-Origin", "*").build();
     }
 
@@ -110,6 +109,7 @@ public class Servlet {
     }
 
     public static void blockAreaSetup(DynamicGraphHopper hopper, String avoidArea) {
+
         JSONObject jsonData = new JSONObject(avoidArea);
         GraphEdgeIdFinder.BlockArea blockArea = new GraphEdgeIdFinder.BlockArea(hopper.getBaseGraph());
 
@@ -126,9 +126,9 @@ public class Servlet {
             if (type.equals("Polygon")) {
                 double[] lats = new double[coords.getJSONArray(0).length()];
                 double[] lons = new double[coords.getJSONArray(0).length()];
-                for (i = 0; i < coords.getJSONArray(0).length(); i++) {
-                    lats[i] = coords.getJSONArray(0).getJSONArray(i).getDouble(1);
-                    lons[i] = coords.getJSONArray(0).getJSONArray(i).getDouble(0);
+                for (int coordinateIndex = 0; coordinateIndex < coords.getJSONArray(0).length(); coordinateIndex++) {
+                    lats[coordinateIndex] = coords.getJSONArray(0).getJSONArray(coordinateIndex).getDouble(1);
+                    lons[coordinateIndex] = coords.getJSONArray(0).getJSONArray(coordinateIndex).getDouble(0);
                 }
                 blockArea.add(new Polygon(lats, lons));
             }
