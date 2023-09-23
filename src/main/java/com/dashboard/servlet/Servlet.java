@@ -120,10 +120,14 @@ public class Servlet {
             JSONArray coords = feature.getJSONObject("geometry").getJSONArray("coordinates");
             String type = feature.getJSONObject("geometry").getString("type");
 
-            if (type.equals("Point")) {
-                blockArea.add(new Circle(coords.getDouble(1), coords.getDouble(0), 1));
+            if (type.equals("Point")) { // Circle or point
+                double radius = 1;  // Point without radius is a circle with radius = 1
+                if (feature.getJSONObject("properties").has("radius")) {  // Circle
+                    radius = feature.getJSONObject("properties").getDouble("radius");
+                }
+                blockArea.add(new Circle(coords.getDouble(1), coords.getDouble(0), radius));
             }
-            if (type.equals("Polygon")) {
+            if (type.equals("Polygon")) {   // Polygon or BBox (rectangle)
                 double[] lats = new double[coords.getJSONArray(0).length()];
                 double[] lons = new double[coords.getJSONArray(0).length()];
                 for (int coordinateIndex = 0; coordinateIndex < coords.getJSONArray(0).length(); coordinateIndex++) {
@@ -131,10 +135,6 @@ public class Servlet {
                     lons[coordinateIndex] = coords.getJSONArray(0).getJSONArray(coordinateIndex).getDouble(0);
                 }
                 blockArea.add(new Polygon(lats, lons));
-            }
-            if (type.equals("Point") && feature.getJSONObject("properties").has("radius")) {      // circle
-                double radius = feature.getJSONObject("properties").getDouble("radius");
-                blockArea.add(new Circle(coords.getDouble(1), coords.getDouble(0), radius));
             }
         }
         hopper.setBlockArea(blockArea);
