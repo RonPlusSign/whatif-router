@@ -50,9 +50,9 @@ public class Servlet {
      */
     @GET
     @Produces(MediaType.TEXT_PLAIN)
-    public static Response getRoute(@DefaultValue("car") @QueryParam("vehicle") String vehicle,
+    public static Response getRoute(@QueryParam("waypoints") String waypoints,
+                                    @DefaultValue("car") @QueryParam("vehicle") String vehicle,
                                     @DefaultValue("") @QueryParam("avoid_area") String avoidArea,
-                                    @DefaultValue("") @QueryParam("waypoints") String waypoints,
                                     @DefaultValue("") @QueryParam("startDatetime") String startTimestamp,
                                     @DefaultValue("fastest") @QueryParam("weighting") String weighting) {
         _vehicle = vehicle;
