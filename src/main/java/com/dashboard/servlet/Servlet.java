@@ -99,8 +99,7 @@ public class Servlet {
         // create one GraphHopper instance
         DynamicGraphHopper hopper = new DynamicGraphHopper(startDatetime);
         hopper.setOSMFile("toscana.osm.pbf");
-        hopper.setGraphHopperLocation("toscana_" + _vehicle + "_map-gh");
-        // hopper.clean();
+        hopper.setGraphHopperLocation("toscana_" + _vehicle + "_" + weighting + "_map-gh"); // The location should be different for each Profile (vehicle + weighting)
         hopper.setProfiles(new Profile(_vehicle).setVehicle(_vehicle).setWeighting(weighting));
 
         // now this can take minutes if it imports or a few seconds for loading (of course this is dependent on the area you import)

@@ -176,7 +176,7 @@ public class DynamicGraphHopper extends GraphHopper {
                 trafficData.put(keyStr, new Pair<>(ttt, max));
             });
         } catch (IOException e) {
-            System.out.println("Error while reading the traffic data");
+            System.out.println("Error while reading the traffic data: " + e.getMessage());
         }
     }
 }
